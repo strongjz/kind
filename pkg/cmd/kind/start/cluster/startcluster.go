@@ -19,6 +19,7 @@ package cluster
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -73,11 +74,11 @@ func startCluster(logger log.Logger, streams cmd.IOStreams, flags *flagpole) err
 	}
 
 	//does the named cluster exist
-	i, found := find(clusters, flags.Name)
-	if found {
+	sort.Strings(clusters)
+	i := sort.SearchStrings(clusters,flags.Name)
+
+	if i < len(clusters) && clusters[i] == flags.Name {
 		fmt.Fprintln(streams.Out, "Cluster "+clusters[i]+" exist")
-
-
 		return nil
 	}
 
@@ -90,16 +91,4 @@ func startCluster(logger log.Logger, streams cmd.IOStreams, flags *flagpole) err
 		fmt.Fprintln(streams.Out, cluster)
 	}
 	return nil
-}
-
-// Find takes a slice and looks for an element in it. If found it will
-// return it's key, otherwise it will return -1 and a bool of false.
-func find(slice []string, val string) (int, bool) {
-	for i, item := range slice {
-		if item == val {
-			return i, true
-		}
-	}
-	return -1, false
-
 }
