@@ -84,6 +84,11 @@ type Cluster struct {
 	// These should be YAML or JSON formatting RFC 6902 JSON patches
 	// NOTE: These are not currently version-aware.
 	ContainerdConfigPatchesJSON6902 []string `yaml:"containerdConfigPatchesJSON6902,omitempty" json:"containerdConfigPatchesJSON6902,omitempty"`
+
+	// NodeGroups defines named groups of node configurations.
+	// These can be referenced when adding nodes to an existing cluster with
+	// `kind add node --config <file> --group <name>`.
+	NodeGroups []NodeGroup `yaml:"nodeGroups,omitempty" json:"nodeGroups,omitempty"`
 }
 
 // TypeMeta partially copies apimachinery/pkg/apis/meta/v1.TypeMeta
@@ -148,6 +153,18 @@ type Node struct {
 	// The node-level patches will be applied after the cluster-level patches
 	// have been applied. (See Cluster.KubeadmConfigPatchesJSON6902)
 	KubeadmConfigPatchesJSON6902 []PatchJSON6902 `yaml:"kubeadmConfigPatchesJSON6902,omitempty" json:"kubeadmConfigPatchesJSON6902,omitempty"`
+}
+
+// NodeGroup defines a named group of nodes that share a common configuration.
+// Node groups make it easy to add pre-configured nodes to an existing cluster
+// via `kind add node --group <name>`.
+type NodeGroup struct {
+	// Name is the unique identifier for this node group within the cluster config.
+	Name string `yaml:"name" json:"name"`
+
+	// Template is the node configuration that will be applied to every node
+	// created from this group (role, image, labels, mounts, etc.).
+	Template Node `yaml:"template,omitempty" json:"template,omitempty"`
 }
 
 // NodeRole defines possible role for nodes in a Kubernetes cluster managed by `kind`

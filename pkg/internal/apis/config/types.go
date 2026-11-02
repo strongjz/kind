@@ -69,6 +69,19 @@ type Cluster struct {
 	// in the order listed.
 	// These should be YAML or JSON formatting RFC 6902 JSON patches
 	ContainerdConfigPatchesJSON6902 []string
+
+	// NodeGroups defines named groups of node configurations that can be
+	// referenced when adding nodes to a running cluster.
+	NodeGroups []NodeGroup
+}
+
+// NodeGroup defines a named group of nodes sharing a common node template.
+type NodeGroup struct {
+	// Name uniquely identifies this group within the cluster config.
+	Name string
+
+	// Template is the node config applied to each node created from this group.
+	Template Node
 }
 
 // Node contains settings for a node in the `kind` Cluster.

@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/kind/pkg/cmd"
 	"sigs.k8s.io/kind/pkg/errors"
 	"sigs.k8s.io/kind/pkg/internal/apis/config"
+	"sigs.k8s.io/kind/pkg/internal/apis/config/encoding"
 	"sigs.k8s.io/kind/pkg/internal/cli"
 	"sigs.k8s.io/kind/pkg/internal/runtime"
 	"sigs.k8s.io/kind/pkg/log"
@@ -34,6 +35,8 @@ type flagpole struct {
 	Role    string
 	Image   string
 	Retain  bool
+	Config  string
+	Group   string
 }
 
 // NewCommand returns a new cobra.Command for adding a node to an existing cluster
@@ -44,8 +47,23 @@ func NewCommand(logger log.Logger, streams cmd.IOStreams) *cobra.Command {
 		Short: "Add a node to an existing cluster",
 		Long: `Add a node to an existing cluster.
 
-NODE_NAME must be unique within the cluster.  The node role can be
-"worker" (default) or "control-plane".
+NODE_NAME must be unique within the cluster.
+
+The node configuration can be specified in three ways (in order of precedence):
+  1. Explicit flags (--role, --image)
+  2. A named node group from a cluster config file (--config, --group)
+  3. Default worker node configuration
+
+Examples:
+
+  # Add a worker node with the default image
+  kind add node my-worker --name my-cluster
+
+  # Add a control-plane node
+  kind add node my-cp --name my-cluster --role control-plane
+
+  # Add a node using a named group from a config file
+  kind add node my-worker --name my-cluster --config cluster.yaml --group workers
 
 NOTE: only the Docker provider is currently supported.`,
 		Args: cobra.ExactArgs(1),
@@ -63,8 +81,8 @@ NOTE: only the Docker provider is currently supported.`,
 	cmd.Flags().StringVarP(
 		&flags.Role,
 		"role", "r",
-		"worker",
-		`node role: "worker" or "control-plane"`,
+		"",
+		`node role: "worker" (default) or "control-plane"`,
 	)
 	cmd.Flags().StringVar(
 		&flags.Image,
@@ -77,6 +95,18 @@ NOTE: only the Docker provider is currently supported.`,
 		"retain",
 		false,
 		"retain the container for debugging when join fails",
+	)
+	cmd.Flags().StringVar(
+		&flags.Config,
+		"config",
+		"",
+		"path to a cluster config file containing nodeGroups",
+	)
+	cmd.Flags().StringVar(
+		&flags.Group,
+		"group",
+		"",
+		"name of a nodeGroup in --config to use as the node template",
 	)
 	return cmd
 }
@@ -102,22 +132,12 @@ func runE(logger log.Logger, flags *flagpole, nodeName string) error {
 		return errors.Errorf("cluster %q does not exist", flags.Name)
 	}
 
-	var role config.NodeRole
-	switch flags.Role {
-	case "worker":
-		role = config.WorkerRole
-	case "control-plane":
-		role = config.ControlPlaneRole
-	default:
-		return errors.Errorf("invalid role %q: must be \"worker\" or \"control-plane\"", flags.Role)
+	nodeConfig, err := resolveNodeConfig(flags)
+	if err != nil {
+		return err
 	}
 
-	nodeConfig := &config.Node{
-		Role:  role,
-		Image: flags.Image,
-	}
-
-	logger.V(0).Infof("Adding %s node %q to cluster %q ...", flags.Role, nodeName, flags.Name)
+	logger.V(0).Infof("Adding %s node %q to cluster %q ...", nodeConfig.Role, nodeName, flags.Name)
 
 	node, err := provider.AddNode(flags.Name, nodeName, nodeConfig, flags.Retain)
 	if err != nil {
@@ -126,4 +146,52 @@ func runE(logger log.Logger, flags *flagpole, nodeName string) error {
 
 	logger.V(0).Infof("Node %s added successfully", node.String())
 	return nil
+}
+
+// resolveNodeConfig builds a node config from flags and optional cluster config file.
+// Priority: explicit --role/--image flags > named --group from --config > defaults.
+func resolveNodeConfig(flags *flagpole) (*config.Node, error) {
+	nodeConfig := &config.Node{
+		Role: config.WorkerRole, // default
+	}
+
+	// If a config file and group are provided, load the group template first.
+	if flags.Config != "" && flags.Group != "" {
+		clusterCfg, err := encoding.Load(flags.Config)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to load config file %q", flags.Config)
+		}
+		groupFound := false
+		for _, g := range clusterCfg.NodeGroups {
+			if g.Name == flags.Group {
+				nodeConfig = g.Template.DeepCopy()
+				groupFound = true
+				break
+			}
+		}
+		if !groupFound {
+			return nil, errors.Errorf("node group %q not found in config file %q", flags.Group, flags.Config)
+		}
+	} else if flags.Config != "" && flags.Group == "" {
+		return nil, errors.New("--config requires --group to specify which nodeGroup to use")
+	} else if flags.Group != "" && flags.Config == "" {
+		return nil, errors.New("--group requires --config to specify the cluster config file")
+	}
+
+	// Explicit flags override the group template.
+	if flags.Role != "" {
+		switch flags.Role {
+		case "worker":
+			nodeConfig.Role = config.WorkerRole
+		case "control-plane":
+			nodeConfig.Role = config.ControlPlaneRole
+		default:
+			return nil, errors.Errorf("invalid role %q: must be \"worker\" or \"control-plane\"", flags.Role)
+		}
+	}
+	if flags.Image != "" {
+		nodeConfig.Image = flags.Image
+	}
+
+	return nodeConfig, nil
 }

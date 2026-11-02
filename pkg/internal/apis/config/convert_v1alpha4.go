@@ -32,6 +32,7 @@ func Convertv1alpha4(in *v1alpha4.Cluster) *Cluster {
 		KubeadmConfigPatchesJSON6902:    make([]PatchJSON6902, len(in.KubeadmConfigPatchesJSON6902)),
 		ContainerdConfigPatches:         in.ContainerdConfigPatches,
 		ContainerdConfigPatchesJSON6902: in.ContainerdConfigPatchesJSON6902,
+		NodeGroups:                      make([]NodeGroup, len(in.NodeGroups)),
 	}
 
 	for i := range in.Nodes {
@@ -42,6 +43,11 @@ func Convertv1alpha4(in *v1alpha4.Cluster) *Cluster {
 
 	for i := range in.KubeadmConfigPatchesJSON6902 {
 		convertv1alpha4PatchJSON6902(&in.KubeadmConfigPatchesJSON6902[i], &out.KubeadmConfigPatchesJSON6902[i])
+	}
+
+	for i := range in.NodeGroups {
+		out.NodeGroups[i].Name = in.NodeGroups[i].Name
+		convertv1alpha4Node(&in.NodeGroups[i].Template, &out.NodeGroups[i].Template)
 	}
 
 	return out
