@@ -449,3 +449,15 @@ func info(logger log.Logger) (*providers.ProviderInfo, error) {
 	}
 	return info, nil
 }
+
+// AddNode is part of the providers.Provider interface.
+// Dynamic node addition is not yet supported for the podman provider.
+func (p *provider) AddNode(cluster, nodeName string, nodeConfig *config.Node, retain bool) (nodes.Node, error) {
+	return nil, errors.New("adding nodes to an existing cluster is not yet supported for the podman provider")
+}
+
+// RemoveNode is part of the providers.Provider interface.
+// Dynamic node removal is not yet supported for the podman provider.
+func (p *provider) RemoveNode(cluster, nodeName string) error {
+	return errors.New("removing nodes from an existing cluster is not yet supported for the podman provider")
+}

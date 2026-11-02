@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/kind/pkg/cmd"
 	deletecluster "sigs.k8s.io/kind/pkg/cmd/kind/delete/cluster"
 	deleteclusters "sigs.k8s.io/kind/pkg/cmd/kind/delete/clusters"
+	deletenode "sigs.k8s.io/kind/pkg/cmd/kind/delete/node"
 	"sigs.k8s.io/kind/pkg/log"
 )
 
@@ -45,5 +46,6 @@ func NewCommand(logger log.Logger, streams cmd.IOStreams) *cobra.Command {
 	}
 	cmd.AddCommand(deletecluster.NewCommand(logger, streams))
 	cmd.AddCommand(deleteclusters.NewCommand(logger, streams))
+	cmd.AddCommand(deletenode.NewCommand(logger, streams))
 	return cmd
 }

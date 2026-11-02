@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/kind/pkg/cluster/internal/providers/docker"
 	"sigs.k8s.io/kind/pkg/cluster/internal/providers/nerdctl"
 	"sigs.k8s.io/kind/pkg/cluster/internal/providers/podman"
+	"sigs.k8s.io/kind/pkg/internal/apis/config"
 )
 
 // DefaultName is the default cluster name
@@ -233,6 +234,20 @@ func (p *Provider) ListInternalNodes(name string) ([]nodes.Node, error) {
 		return nil, err
 	}
 	return nodeutils.InternalNodes(n)
+}
+
+// AddNode creates a new node container and joins it to an existing cluster.
+// nodeConfig specifies the desired role and image; retain keeps the container
+// on join failure for debugging.
+func (p *Provider) AddNode(name, nodeName string, nodeConfig *config.Node, retain bool) (nodes.Node, error) {
+	return p.provider.AddNode(defaultName(name), nodeName, nodeConfig, retain)
+}
+
+// RemoveNode gracefully drains the named node, removes it from the Kubernetes
+// cluster (and from etcd if it is a control-plane node), then deletes its
+// underlying container.
+func (p *Provider) RemoveNode(name, nodeName string) error {
+	return p.provider.RemoveNode(defaultName(name), nodeName)
 }
 
 // CollectLogs will populate dir with cluster logs and other debug files

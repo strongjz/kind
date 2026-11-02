@@ -49,6 +49,12 @@ type Provider interface {
 	CollectLogs(dir string, nodes []nodes.Node) error
 	// Info returns the provider info
 	Info() (*ProviderInfo, error)
+	// AddNode creates a new node container and joins it to an existing cluster.
+	// nodeConfig specifies the role and image; retain keeps the container on join failure.
+	AddNode(cluster, nodeName string, nodeConfig *config.Node, retain bool) (nodes.Node, error)
+	// RemoveNode drains, removes from etcd (if control-plane), and deletes the
+	// named node container from the cluster.
+	RemoveNode(cluster, nodeName string) error
 }
 
 // ProviderInfo is the info of the provider
